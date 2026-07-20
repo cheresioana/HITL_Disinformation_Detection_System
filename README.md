@@ -45,7 +45,7 @@ Paths are defined in [`config.py`](./config.py) (`DATASETS_DIR`, `RESULTS_DIR`, 
 
 ```bash
 python -m venv venv
-source .venv/bin/activate
+source venv/bin/activate
 make install          # or: pip install -r requirements.txt
 ```
 
