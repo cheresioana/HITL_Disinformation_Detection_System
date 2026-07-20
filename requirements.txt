@@ -1,10 +1,9 @@
-# PyTorch + torchvision must be installed as a matched pair from the same CUDA
-# wheel index, or torchvision's compiled ops fail with
-# "RuntimeError: operator torchvision::nms does not exist".
-# Server has CUDA driver 13.0 -> use the cu130 wheels.
---extra-index-url https://download.pytorch.org/whl/cu130
-torch==2.12.1+cu130
-torchvision==0.27.1+cu130
+# PyTorch (CPU/MPS build from PyPI). Works on macOS, Linux, and the Docker image.
+# The web app runs sentence-transformers on CPU; the heavy LLM work is offloaded
+# to the separate Ollama server, so no CUDA build is needed here.
+# For a CUDA GPU host, install a matching wheel instead, e.g.:
+#   pip install torch==2.12.1 --index-url https://download.pytorch.org/whl/cu130
+torch==2.12.1
 
 Flask==3.1.3
 nltk==3.9.1
