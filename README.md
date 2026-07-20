@@ -71,6 +71,14 @@ make dataset-stats                                           # label counts per 
 make help                                                    # list every target
 ```
 
+> **`eval-sota` needs all four datasets present**, each with the same train/val/test layout under `datasets/`:
+> - `covid/` — `train.csv`, `eval.csv`, `test.csv`
+> - `liar/` — `train.tsv`, `valid.tsv`, `test.tsv`
+> - `fake_news_net/` — `train_fakenewsnet.csv`, `val_fakenewsnet.csv`, `test_fakenewsnet.csv`
+> - `mindbugs_updated/` — `train.csv`, `validation_df.csv`, `evaluation.csv`
+>
+> A missing file stops the run with e.g. `FileNotFoundError: datasets/covid/train.csv`. To smoke-test without the full data, point it at the bundled 6-row set: `DATASETS_DIR=datasets_test make eval-sota`.
+
 A prose description of the algorithm and the full evaluation results is in [`report.md`](./report.md).
 
 ## 🐳 Run with Docker Compose
