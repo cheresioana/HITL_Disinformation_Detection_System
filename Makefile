@@ -8,18 +8,6 @@ PYTHON ?= python3
 train:
 	$(PYTHON) -m commands.train
 
-## Train narrative trees (Romanian, Mindbugs-RO dataset)
-train-ro:
-	$(PYTHON) -m commands.train_ro
-
-## Incrementally update trees with new data (DATA and FOLDER required)
-update:
-	$(PYTHON) -m commands.update_model --data $(DATA) --folder $(FOLDER)
-
-## Translate Mindbugs dataset to Romanian
-translate-ro:
-	$(PYTHON) -m scripts.translate_dataset_ro --concurrency 10
-
 # ---------------------------------------------------------------------------
 # Evaluation
 # ---------------------------------------------------------------------------
@@ -46,10 +34,6 @@ eval-sota:
 ## Print label counts and date distributions for all datasets
 dataset-stats:
 	$(PYTHON) -m scripts.dataset_stats
-
-## Scan translated JSON articles for fake news
-scan-translations:
-	$(PYTHON) -m scripts.scan_translations
 
 # ---------------------------------------------------------------------------
 # Utilities
@@ -89,16 +73,12 @@ help:
 	@echo ""
 	@echo "Training:"
 	@echo "  train           Train narrative trees (English, Mindbugs)"
-	@echo "  train-ro        Train narrative trees (Romanian, Mindbugs-RO)"
-	@echo "  update          Update trees with new data (DATA=path FOLDER=path)"
-	@echo "  translate-ro    Translate Mindbugs dataset to Romanian"
 	@echo ""
 	@echo "Evaluation:"
 	@echo "  eval-val        Evaluate on validation dataset (FILE=path required)"
 	@echo "  eval-news       Evaluate on complete news articles (600 articles)"
 	@echo "  eval-sota       Run SOTA baselines on all datasets"
 	@echo "  dataset-stats   Print label counts and date distributions"
-	@echo "  scan-translations  Scan translated JSONs for fake news"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  install         Install Python dependencies"
@@ -108,5 +88,5 @@ help:
 	@echo "  help            Show this help message"
 	@echo ""
 
-.PHONY: train train-ro update translate-ro eval-val eval-news eval-sota dataset-stats scan-translations install test test-fast lint help
+.PHONY: train eval-val eval-news eval-sota dataset-stats install test test-fast lint help
 .DEFAULT_GOAL := help
