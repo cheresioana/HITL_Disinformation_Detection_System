@@ -11,25 +11,20 @@ import pandas as pd
 from sota_comparison.src.adapters import (
     CovidDatasetAdapter,
     MindbugsDatasetAdapter,
-    MindbugsRoDatasetAdapter,
     LiarDatasetAdapter,
-    WELFakeDatasetAdapter,
     FakeNewsNetDatasetAdapter,
 )
 
 DATASETS = [
     ("COVID",        CovidDatasetAdapter()),
     ("Mindbugs",     MindbugsDatasetAdapter()),
-    ("Mindbugs-RO",  MindbugsRoDatasetAdapter()),
     ("LIAR",         LiarDatasetAdapter()),
-    ("WELFake",      WELFakeDatasetAdapter()),
     ("FakeNewsNet",  FakeNewsNetDatasetAdapter()),
 ]
 
 # Datasets that have a 'date' column in the raw CSV files
 DATE_DATASETS = {
     "Mindbugs":    Path("datasets") / "mindbugs",
-    "Mindbugs-RO": Path("datasets") / "mindbugs_ro",
 }
 
 
