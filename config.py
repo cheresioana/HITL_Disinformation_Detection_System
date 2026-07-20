@@ -34,7 +34,7 @@ COMPLETE_NEWS_TEST = str(
     DATASETS_DIR / "complete_news_data" / "complete_news_test_df.csv"
 )
 CORRECTION_SET_PATH = (
-    DATASETS_DIR / "mindbugs_updated" / "correction_df_prepared.csv"
+    DATASETS_DIR / "mindbugs_updated" / "correction_df.csv"
 )
 
 # ── Backup / restore ─────────────────────────────────────────────
