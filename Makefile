@@ -27,9 +27,9 @@ eval-val:
 	printf 'evaluate_statements took %dm %ds\n' $$((elapsed/60)) $$((elapsed%60)); \
 	exit $$status
 
-## Evaluate on complete news articles
+## Evaluate on complete news articles (optional THRESHOLD=N, WORKERS=N)
 eval-news:
-	$(PYTHON) -m commands.evaluate_complete_news --threshold 0.3 --workers 8
+	$(PYTHON) -m commands.evaluate_complete_news $(if $(THRESHOLD),--threshold $(THRESHOLD)) --workers $(if $(WORKERS),$(WORKERS),8)
 
 ## Run SOTA baselines (SVM, LR, GradientBoosting, DecisionTree, KNN) on all datasets
 eval-sota:

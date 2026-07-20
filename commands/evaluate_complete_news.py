@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 
-from config import COMPLETE_NEWS_TEST, NARRATIVE_DIR
+from config import ACTIVE_THRESHOLD, COMPLETE_NEWS_TEST, NARRATIVE_DIR
 from algo.algo_utils import load_structure_file
 from algo.parse_news import worker
 
@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Evaluate on complete news articles")
-    parser.add_argument("--threshold", type=float, default=0.3,
-                        help="Tree threshold to load (default 0.3)")
+    parser.add_argument("--threshold", type=float, default=ACTIVE_THRESHOLD,
+                        help="Tree threshold to load (default: config.ACTIVE_THRESHOLD)")
     parser.add_argument("--workers", type=int, default=5,
                         help="Number of parallel workers (default 5)")
     args = parser.parse_args()
