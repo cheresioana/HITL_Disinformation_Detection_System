@@ -43,6 +43,10 @@ dataset-stats:
 # Utilities
 # ---------------------------------------------------------------------------
 
+## Run the Flask API/web app (http://0.0.0.0:5003)
+run-api:
+	$(PYTHON) app/app.py
+
 ## Install dependencies
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -86,6 +90,7 @@ help:
 	@echo "  dataset-stats   Print label counts and date distributions"
 	@echo ""
 	@echo "Utilities:"
+	@echo "  run-api         Run the Flask API/web app (port 5003)"
 	@echo "  install         Install Python dependencies"
 	@echo "  test            Run the full pytest suite (unit + integration)"
 	@echo "  test-fast       Run only the fast unit tests (skip integration)"
@@ -93,5 +98,5 @@ help:
 	@echo "  help            Show this help message"
 	@echo ""
 
-.PHONY: train train-resume eval-val eval-news eval-sota dataset-stats install test test-fast lint help
+.PHONY: train train-resume eval-val eval-news eval-sota dataset-stats run-api install test test-fast lint help
 .DEFAULT_GOAL := help

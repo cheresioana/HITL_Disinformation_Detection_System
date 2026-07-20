@@ -44,6 +44,8 @@ Paths are defined in [`config.py`](./config.py) (`DATASETS_DIR`, `RESULTS_DIR`, 
 **3. Install dependencies** (Python 3):
 
 ```bash
+python -m venv venv
+source .venv/bin/activate
 make install          # or: pip install -r requirements.txt
 ```
 
@@ -60,26 +62,6 @@ Then point the code at that server:
 export OLLAMA_BASE_URL=http://your-ollama-host:11434/
 ```
 
-## Run the pipeline
-
-```bash
-make train                                                   # build narrative trees (English, MindBugs)
-make eval-val FILE=datasets/mindbugs_updated/evaluation.csv  # evaluate statements
-make eval-news                                               # evaluate full news articles
-make eval-sota                                               # classical baselines on all datasets
-make dataset-stats                                           # label counts per dataset
-make help                                                    # list every target
-```
-
-> **`eval-sota` needs all four datasets present**, each with the same train/val/test layout under `datasets/`:
-> - `covid/` — `train.csv`, `eval.csv`, `test.csv`
-> - `liar/` — `train.tsv`, `valid.tsv`, `test.tsv`
-> - `fake_news_net/` — `train_fakenewsnet.csv`, `val_fakenewsnet.csv`, `test_fakenewsnet.csv`
-> - `mindbugs_updated/` — `train.csv`, `validation_df.csv`, `evaluation.csv`
->
-> A missing file stops the run with e.g. `FileNotFoundError: datasets/covid/train.csv`. To smoke-test without the full data, point it at the bundled 6-row set: `DATASETS_DIR=datasets_test make eval-sota`.
-
-A prose description of the algorithm and the full evaluation results is in [`report.md`](./report.md).
 
 ## 🐳 Run with Docker Compose
 
@@ -94,6 +76,7 @@ Check, and reclaim if needed, **before** starting:
 docker system df          # how much of Docker's disk is used / reclaimable
 docker system prune -af   # frees unused images + build cache (keeps your Ollama models; do NOT add --volumes)
 ```
+
 
 ### Quick start
 ```bash
@@ -176,90 +159,28 @@ curl -X POST http://localhost:5003/process_news \
 
 ---
 
-### `POST /ingest_text`
 
-Ingests labelled text into the model to keep the knowledge base up to date. 
+## Run the pipeline
 
-The system is designed to receive data from external scrapers: trustworthy news sources and disinformation monitoring platforms (e.g. EUvsDisinfo). 
-The input should be an extractive summary or a single sentence. Each sentence is split and individually added to the corresponding narrative tree (true or fake), allowing the model to continuously learn new narratives without a full retrain.
-
-- **Content-Type:** `application/json`
-- **Request body:**
-  - `text` — *(string, required)* extractive summary or sentence to ingest
-  - `label` — *(string, required)* `"true"` (trustworthy source) or `"fake"` (disinformation)
-- **Response:** 202 JSON with `status`, `sentence_count`, `label`
-- **Status polling:** `GET /ingest/status`
-
-**Example:**
 ```bash
-curl -X POST http://localhost:5003/ingest_text \
-  -H "Content-Type: application/json" \
-  -d '{"text": "The EU approved new sanctions on Russia.", "label": "true"}'
+
+make train                                                   # build narrative trees (English, MindBugs)
+make eval-val FILE=datasets/mindbugs_updated/evaluation.csv  # evaluate statements
+make eval-news                                               # evaluate full news articles
+make eval-sota                                               # classical baselines on all datasets
+make dataset-stats                                           # label counts per dataset
+make help                                                    # list every target
 ```
 
-**Response** (`202 Accepted`):
-```json
-{
-  "status": "accepted",
-  "sentence_count": 1,
-  "label": "true"
-}
-```
+> **`eval-sota` needs all four datasets present**, each with the same train/val/test layout under `datasets/`:
+> - `covid/` — `train.csv`, `eval.csv`, `test.csv`
+> - `liar/` — `train.tsv`, `valid.tsv`, `test.tsv`
+> - `fake_news_net/` — `train_fakenewsnet.csv`, `val_fakenewsnet.csv`, `test_fakenewsnet.csv`
+> - `mindbugs_updated/` — `train.csv`, `validation_df.csv`, `evaluation.csv`
+>
+> A missing file stops the run with e.g. `FileNotFoundError: datasets/covid/train.csv`. To smoke-test without the full data, point it at the bundled 6-row set: `DATASETS_DIR=datasets_test make eval-sota`.
 
-**Poll ingestion status:**
-```bash
-curl http://localhost:5003/ingest/status
-```
+A prose description of the algorithm and the full evaluation results is in [`report.md`](./report.md).
 
-```json
-{
-  "ingest_status": 2,
-  "ingest_error": null,
-  "updated_at": "2026-03-14T15:30:45.123Z"
-}
-```
 
-`ingest_status`: `0` = idle, `1` = running, `2` = done, `-1` = failed
 
-#### Ingestion Architecture
-
-```
- ┌─────────────────────┐         ┌───────────┐
- │  Trustworthy Sources│         │           │    label = "true"
- │  (Reuters, AP, …)   │────────▶│  Scraper  │───────────────┐
- └─────────────────────┘         └───────────┘               │
-                                                             ▼
-                                                   ┌───────────────────┐
-                                                   │ POST /ingest_text │
-                                                   │ { text, label }   │
-                                                   └──────────────┬────┘
-                                                         ▲        │
- ┌─────────────────────┐         ┌───────────┐           |        │ 
- │  Disinfo Monitoring │         │           │  label = "fake"    │
- │  (EUvsDisinfo, …)   │────────▶│  Scraper  │───────────         │
- └─────────────────────┘         └───────────┘                    │
-                                                                  │
-                                                                  ▼
-                                                   ┌──────────────────────────┐
-                                                   │  Narrative Detection     │
-                                                   │  Module                  │
-                                                   │                          │
-                                                   │  1. Split into sentences │
-                                                   │  2. Embed (SentenceTF)   │
-                                                   │  3. Match to tree        │
-                                                   │  4. Graft new nodes      │
-                                                   │  5. Persist updated tree │
-                                                   └────┬────────────┬───────┘
-                                                        │            │
-                                                        ▼            ▼
-                                                   ┌────────┐  ┌────────┐
-                                                   │  True  │  │  Fake  │
-                                                   │  Tree  │  │  Tree  │
-                                                   |   KB   |  |   KB   |
-                                                   └────────┘  └────────┘
-```
-
----
-## License
-Proprietary, source-available. Usage is restricted **exclusively to the Sol 2 project**
-under the terms in [`LICENSE`](./LICENSE). No other use, copying, or distribution is permitted.
