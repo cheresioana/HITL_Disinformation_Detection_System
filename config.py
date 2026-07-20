@@ -61,8 +61,7 @@ OLLAMA_MODEL_ENT = "gemma3:27b"
 OLLAMA_MODEL_SMALL = "gemma3:12b"
 OLLAMA_BASE_URL = os.environ.get(
     "OLLAMA_BASE_URL",
-    #"http://localhost:11434/",
-    "https://sy6pkzmzi4hwqn-11434.proxy.runpod.net",
+    "http://localhost:11434/",
 )
 OLLAMA_URL = f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat"
 

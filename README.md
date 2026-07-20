@@ -1,41 +1,77 @@
-# Disinformation Narrative Detection App
+# Self-Explanatory Disinformation Detection System with Human-in-the-loop
 
-This Flask app identifies whether a given text aligns with known disinformation narratives. It uses embeddings, a narrative tree structure, and allows expert edits via a web interface.
+Research code and paper for a self-explanatory disinformation-detection system. The system embeds statements into a **narrative tree**, classifies text against known true and fake narratives, explains every decision by the narrative it matched, and lets human experts correct the model through a web interface. This repository holds the full pipeline (training, evaluation, experiments), the interactive web app with its REST API, and the paper itself.
 
 ## Features
 
-- **Web UI** for interactive exploration: classify text, visualize narrative hierarchies, and edit or remove nodes in real time
-- **REST API** for programmatic access: classify full news articles (`/process_news`), and ingest new labelled data (`/ingest_text`)
-- **Makefile** with commands for training, evaluation, and dataset utilities (run `make help` to see all available targets)
+- **Narrative-tree pipeline** for building true/fake narrative trees from labelled data, classifying statements and full articles, and comparing against classical baselines (SVM, LR, GradientBoosting, DecisionTree, KNN). Driven through the `Makefile` (`make help`).
+- **Human-in-the-loop** review: experts inspect the learned narratives and add or remove nodes so the knowledge base stays correct without a full retrain.
+- **Web UI** for interactive exploration: classify text, visualize narrative hierarchies, and edit or remove nodes in real time.
+- **REST API** for programmatic access: classify full news articles (`/process_news`) and ingest new labelled data (`/ingest_text`).
 
-## Algorithm & Evaluation
+## Setup
 
-A detailed description of the algorithm, evaluation methodology, and experimental results is available in [`report.md`](./report.md). The `Makefile` provides all the commands needed to reproduce the training and evaluation pipeline.
+Two large folders are **not** included and must be added before running anything: the **datasets** and the **results** (the trained narrative trees).
 
-## Download & Unzip Required Data
-
-1. **Download the archives** from this link: **[Download data & results](https://drive.google.com/drive/folders/1WSM6PAJ8Gyi1PsyeY0qi5Uj5Ev_XLPlY?usp=drive_link)**  
-2. **Unzip all archives into the project root** (the same folder that contains `docker-compose.yml`).  
-   After unzipping, you should have these folders in the root:
+**1. Add the dataset** at the project root as `datasets/`:
 
 ```
-├── app/                  # Flask app (app.py, api.py, state.py, status.py, templates/)
-├── algo/                 # Tree logic, classification, model update
-├── LLM/                  # LLM integration (Gemma, embeddings, prompts)
-├── commands/             # CLI commands for training and evaluation
-├── scripts/              # Dataset utilities (translation, stats)
-├── datasets/                 # Working datasets
-├── results/              # Trained narrative trees (JSON)
-├── config.py             # Central configuration (paths, thresholds)
-├── constants.py          # Model constants (reranker, thresholds)
-├── utils.py              # Text cleaning utilities
-├── Makefile              # Training, evaluation, and utility commands
-├── report.md             # Algorithm description and evaluation results
-├── requirements.txt
-├── Dockerfile & docker-compose.yml
+datasets/
+├── mindbugs_updated/           # primary train/eval split (train.csv, evaluation.csv, ...)
+├── covid/                      # COVID-19 dataset (train/eval/test.csv)
+├── liar/                       # LIAR dataset (train/valid/test.tsv)
+├── fake_news_net/              # FakeNewsNet split
+├── complete_news_data/         # full-article eval (complete_news_test_df.csv)
+└── tvr_info/json_translations/ # Romanian in-the-wild articles
 ```
 
-> ⚠️ If the folders already exist, overwrite/merge as needed so the files end up exactly under `./results` and `./work_data`.
+Download it from Kaggle: **[hitl-paper-mindbugs-dataset](https://www.kaggle.com/datasets/ioanacheres/hitl-paper-mindbugs-dataset)**
+
+**2. Add the results (trained trees)** at the project root as `results/`:
+
+```
+results/
+├── narrative_mbd_new/
+│   ├── true/results/full_result_0.5.json    # true-narrative tree
+│   └── false/results/full_result_0.5.json   # fake-narrative tree
+└── backup/                                  # restore point for the web app
+```
+
+Download the results from: **[trained trees & results](https://drive.google.com/drive/folders/1iUAALLYmXeMUeEZ1d1Agb_5ZoX6MD9Ts)**
+
+Paths are defined in [`config.py`](./config.py) (`DATASETS_DIR`, `RESULTS_DIR`, `ACTIVE_THRESHOLD`). To keep the folders elsewhere, edit those constants.
+
+**3. Install dependencies** (Python 3):
+
+```bash
+make install          # or: pip install -r requirements.txt
+```
+
+**4. Run Ollama with the Gemma 3 models.** The pipeline needs an [Ollama](https://ollama.com) server with **both** `gemma3:12b` and `gemma3:27b` pulled: `gemma3:27b` handles generation and entailment, `gemma3:12b` handles extraction.
+
+```bash
+ollama pull gemma3:27b
+ollama pull gemma3:12b
+```
+
+Then point the code at that server:
+
+```bash
+export OLLAMA_BASE_URL=http://your-ollama-host:11434/
+```
+
+## Run the pipeline
+
+```bash
+make train                                                   # build narrative trees (English, MindBugs)
+make eval-val FILE=datasets/mindbugs_updated/evaluation.csv  # evaluate statements
+make eval-news                                               # evaluate full news articles
+make eval-sota                                               # classical baselines on all datasets
+make dataset-stats                                           # label counts per dataset
+make help                                                    # list every target
+```
+
+A prose description of the algorithm and the full evaluation results is in [`report.md`](./report.md).
 
 ## 🐳 Run with Docker Compose
 
