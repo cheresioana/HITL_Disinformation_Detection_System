@@ -132,7 +132,7 @@ if __name__ == "__main__":
     best_acc = 0.0
     best_threshold = None
 
-    thresholds = args.thresholds if args.thresholds else list(np.arange(0.6, 0.65, 0.05))
+    thresholds = args.thresholds if args.thresholds else list(np.arange(0.5, 0.55, 0.05))
     for threshold in thresholds:
         threshold = round(threshold, 2)
         fake_path = f"{args.fake_dir}/full_result_{threshold}.json"
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         if args.save_predictions:
             out_path = (
                 args.save_predictions
-                if len(np.arange(0.6, 0.65, 0.05)) == 1
+                if len(np.arange(0.5, 0.55, 0.05)) == 1
                 else f"{args.save_predictions.rsplit('.', 1)[0]}_t{threshold}.csv"
             )
             pd.DataFrame(per_row).to_csv(out_path, index=False)
