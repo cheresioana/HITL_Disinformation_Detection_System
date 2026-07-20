@@ -166,7 +166,7 @@ curl -X POST http://localhost:5003/process_news \
 
 make train                                                   # build narrative trees (English, MindBugs)
 make eval-val FILE=datasets/mindbugs_updated/evaluation.csv  # evaluate statements
-make eval-news                                               # evaluate full news articles
+make eval-news THRESHOLD=0.5                                  # evaluate full news articles
 make eval-sota                                               # classical baselines on all datasets
 make dataset-stats                                           # label counts per dataset
 make help                                                    # list every target
