@@ -1,0 +1,19 @@
+# PyTorch + torchvision must be installed as a matched pair from the same CUDA
+# wheel index, or torchvision's compiled ops fail with
+# "RuntimeError: operator torchvision::nms does not exist".
+# Server has CUDA driver 13.0 -> use the cu130 wheels.
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.12.1+cu130
+torchvision==0.27.1+cu130
+
+Flask==3.1.3
+nltk==3.9.1
+numpy==2.4.3
+pandas==3.0.1
+requests==2.32.5
+scikit-learn==1.8.0
+scipy==1.17.1
+sentence-transformers==4.1.0
+
+# Test suite
+pytest==9.1.1

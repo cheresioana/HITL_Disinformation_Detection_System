@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Narratives</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+	.no-bullet{
+		list-style: none;
+	}
+  </style>
+</head>
+<body>
+	<div class="container-fluid min-vh-100 d-flex">
+		<div class="row flex-grow-1 w-100">
+			<!--begin::Column1-->
+			<div class="col-md-3 bg-primary-subtle d-flex flex-column gap-5 p-3 py-4">
+				<div class="d-flex  flex-column mb-3 h-100">
+
+					<!--begin::Manual input-->
+					<div>
+						<h5 class="mb-1">Manual input</h5>
+						<p class="text-body-secondary small mb-3">You can also add your own input to test the limits of the system.</p>
+						<div class="card bg-light text-dark">
+							<form id="analyse-form" method="POST" action="/process_text">
+								<div class="card-body">
+									<div class="form-floating">
+										<textarea name="user_text" class="form-control" placeholder="Put here your disinformation or true text" id="floatingTextarea2" style="height: 100px; width:100%"></textarea>
+										<label for="floatingTextarea2" class="text-black-50" style="width:100%">Add your disinformation or true sentence / claim</label>
+									</div>
+									<div class="text-end mt-3">
+										<button type="submit" class="btn btn-primary">Analyse</button>
+									</div>
+								</div>
+							</form>
+						</div>
+					</div>
+					<!--end::Manual input-->
+
+					<!--begin::Update model-->
+					<div class="mt-auto p-2" style="display: none;">
+						<h5 class="mb-1">Update model</h5>
+						<div class="card bg-light text-dark">
+							<div class="card-body">
+								 <form method="POST" action="/update_model" enctype="multipart/form-data">
+									<div class="input-group">
+									  <input type="file" class="form-control" name="dataset" accept=".csv" required>
+									  <button class="btn btn-outline-secondary" type="submit">Upload CSV</button>
+									</div>
+								 </form>
+								<small class="text-body-secondary d-block">The dataset must be in the format: <br/>text (fake news text) and label (0 for true or 1 for false)</small>
+								<div id="update-model-status" class="mt-2"></div>
+							</div>
+						</div>
+					</div>
+					<!--end::Update model-->
+					
+					<!--end::Full retrain-->
+					<div class="p-2" style="display: none;">
+						<div class="card bg-primary-subtle text-dark">
+							<div class="card-body">
+								<h6 class="text-danger">Full retrain</h6>
+								 <form method="POST" action="/full_retrain" enctype="multipart/form-data">
+									<div class="input-group">
+									  <input type="file" class="form-control" name="dataset" accept=".csv" required>
+									  <button class="btn btn-outline-secondary" type="submit">Upload CSV</button>
+									</div>
+								 </form>
+<!--								<div class="input-group">-->
+<!--									<input type="file" class="form-control" id="inputGroupFile05" aria-describedby="inputGroupFileAddon05" aria-label="Upload">-->
+<!--									<button class="btn btn-outline-secondary" type="button" id="inputGroupFileAddon05">Upload CSV</button>-->
+<!--								</div>-->
+								<small class="text-body-secondary d-block mb-1">The dataset must be in the format: <br/>text (fake news text) and label (0 for true or 1 for false)</small>
+								<i class="bi bi-exclamation-circle text-danger"></i> <small class="text-danger">Warning: the full retrain will erase all the structures</small>
+								<div id="full-retrain-status"></div>
+							</div>
+						</div>
+					</div>
+					<!--end::Full retrain-->
+					<!--end::Hard reset-->
+					<div class="p-2" style="display: none;">
+						<div class="card bg-primary-subtle text-dark">
+							<div class="card-body">
+								<h6 class="text-danger">Hard reset</h6>
+								 <form method="POST" action="/hard_reset" enctype="multipart/form-data">
+									  <button class="btn btn-outline-secondary" type="submit">Reset</button>
+								 </form>
+<!--								<div class="input-group">-->
+<!--									<input type="file" class="form-control" id="inputGroupFile05" aria-describedby="inputGroupFileAddon05" aria-label="Upload">-->
+<!--									<button class="btn btn-outline-secondary" type="button" id="inputGroupFileAddon05">Upload CSV</button>-->
+<!--								</div>-->
+								<small class="text-body-secondary d-block mb-1">Reset the model to the initial format </small>
+								<div id="hard-reset-status" class="mt-2"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<!--end::Column1-->
+
+			<!--begin::Column2-->
+			<div class="col-md-5 bg-body-tertiary p-3 d-flex flex-column" style="max-height: 100vh;">
+				<h3 class="mb-1">Review flagged predictions</h3>
+					<p class="text-body-secondary small mb-3">The system flagged these as likely misclassified. Review each prediction and choose to correct the label, refine the matched narrative, or dismiss it.</p>
+					<p class="text-body-secondary small mb-1">You can:</p>
+					<ol class="text-body-secondary small mb-3 ps-3">
+						<li>edit/correct a narrative</li>
+						<li>remove a narrative because it is not valid</li>
+						<li>mark it as the opposite category (true/false) when the system was simply wrong</li>
+						<li>confirm this element is correct</li>
+					</ol>
+				<div id="correction-scroll" class="flex-grow-1 overflow-auto pe-2">
+
+				{% macro render_card(item) %}
+					{% set ingest_status = item.get('ingest_status', 'idle') %}
+					{% set source = item.get('source', 'manual') %}
+					{% set is_pending = ingest_status in ('processing', 'ingesting') %}
+					<div class="card bg-light text-dark p-3" data-user-text="{{item['user_text']}}" data-ingest-status="{{ingest_status}}" data-source="{{source}}" data-label="{{item['label']}}">
+						<div class="d-flex justify-content-between align-items-start">
+							<div>
+								{% if source == 'expert_correction' and ingest_status != 'done' %}
+									<span class="badge bg-danger mb-2">Incorrect prediction</span>
+								{% elif source == 'manual' and ingest_status != 'done' %}
+									<span class="badge bg-info text-dark mb-2">Manual inputted</span>
+								{% endif %}
+								{% if ingest_status == 'processing' %}
+									<span class="badge bg-secondary mb-2">Analysing…</span>
+								{% elif ingest_status == 'ingesting' %}
+									<span class="badge bg-warning text-dark mb-2">Ingesting…</span>
+								{% elif ingest_status == 'done' %}
+									<span class="badge bg-success mb-2">Ingested</span>
+								{% elif ingest_status == 'failed' %}
+									<span class="badge bg-danger mb-2">Failed</span>
+								{% endif %}
+								<h5 class="mb-0">{{item['user_text']}}</h5>
+							</div>
+							{% if not is_pending %}
+							<div class="d-flex gap-2 align-items-center">
+								<form method="POST" action="/dismiss_card">
+									<input type="hidden" name="narrative_text" value="{{item['user_text']}}">
+									<button type="submit" class="btn btn-sm btn-outline-secondary"
+									        title="Dismiss — looks correct or not sure">This element is correct, no change needed</button>
+								</form>
+								{# X = list-dismiss only. Tree deletion is done via the
+								   spotlight panel (See internal structure → trash icon). #}
+								<form method="POST" action="/dismiss_card">
+									<input type="hidden" name="narrative_text" value="{{item['user_text']}}">
+									<button type="submit" class="btn-close"
+									        aria-label="Dismiss from list"
+									        title="Dismiss from list"></button>
+								</form>
+							</div>
+							{% endif %}
+						</div>
+						<hr class="my-2">
+						<div class="d-flex justify-content-between align-items-start">
+							<div class="col-6">
+								<ul>
+									{% if ingest_status == 'processing' %}
+										<li><small class="me-2">Predicted label:</small><span class="text-secondary fst-italic">analysing…</span></li>
+									{% elif item['label'] == 0 %}
+										<li><small class="me-2">Predicted label:</small><span>True</span></li>
+										{% set reason = (item.get('explanation') or {}).get('reason') %}
+										{% if reason %}
+										<li class="no-bullet"><small class="text-secondary fst-italic">{{ reason }}</small></li>
+										{% endif %}
+									{% elif item['label'] == 1 %}
+										<li><small class="me-2">Predicted label:</small><span>Disinformation</span></li>
+										{% if item['node'] %}
+										<li class="no-bullet"><small class="text-secondary">Part of narrative: {{item['node'].text}}</small></li>
+										{% endif %}
+										{# Reason line intentionally omitted here: on a Disinformation card it #}
+										{# duplicates the narrative above and, on a manual fake-flip, can even #}
+										{# contradict it. True cards (label==0) show the reason instead. #}
+									{% endif %}
+								</ul>
+							</div>
+							<div class="col-6 text-end align-self-end">
+								{% if ingest_status == 'processing' %}
+									<button type="button" class="btn btn-outline-secondary align-self-end" disabled>
+										<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+										Analysing…
+									</button>
+								{% elif ingest_status == 'ingesting' %}
+									<button type="button" class="btn btn-outline-secondary align-self-end" disabled>
+										<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+										Ingesting…
+									</button>
+								{% elif ingest_status == 'done' %}
+								{% if item['node'] and item['label'] == 1 %}
+									<form method="POST" action="/get_internal_structure">
+										<input type="hidden" name="narrative_text" value="{{item['node'].text}}">
+										<button type="submit" class="btn btn-success align-self-end">View tree</button>
+									</form>
+								{% endif %}
+								{% elif item['label']==0 %}
+									<div class="d-flex flex-column gap-2 align-items-end">
+										{% if item['node'] %}
+										<form method="POST" action="/get_internal_structure">
+											<input type="hidden" name="narrative_text" value="{{item['node'].text}}">
+											<button type="submit" class="btn btn-outline-primary">See internal structure</button>
+										</form>
+										{% endif %}
+										<form method="POST" action="/mark_item_as_fake">
+											<input type="hidden" name="narrative_text" value="{{item['user_text']}}">
+											<button type="submit" class="btn btn-outline-primary">Mark item as fake</button>
+										</form>
+									</div>
+								{% elif item['label']==1 %}
+									<div class="d-flex flex-column gap-2 align-items-end">
+										<form method="POST" action="/get_internal_structure">
+											<input type="hidden" name="narrative_text" value="{{item['node'].text}}">
+											<button type="submit" class="btn btn-outline-primary">See internal structure</button>
+										</form>
+										<form method="POST" action="/mark_item_as_true">
+											<input type="hidden" name="narrative_text" value="{{item['user_text']}}">
+											<button type="submit" class="btn btn-outline-success">Mark as true</button>
+										</form>
+									</div>
+								{% endif %}
+							</div>
+						</div>
+					</div>
+				{% endmacro %}
+
+				{# Single ordered list — cards stay in their position when marked. The
+				   state (Analysing / Ingesting / Ingested / Failed) shows in the per-card
+				   badge; no separate "In progress" section that would reshuffle the layout
+				   on every click. #}
+				<ul id="correction-list" class="list-unstyled d-flex flex-column gap-4">
+					{% for item in intro_texts %}{{ render_card(item) }}{% endfor %}
+				</ul>
+				</div>
+			</div>
+			<!--end::Column2-->
+
+			<!--begin::Column3-->
+
+		 	<div class="col-md-4 column p-3">
+				<h3 class="mb-3 d-flex align-items-center gap-2">
+					Internal classification structure
+					{% if spotlight_tree == 'true' %}
+					<span class="badge bg-success">True tree</span>
+					{% elif spotlight_tree == 'false' %}
+					<span class="badge bg-danger">False tree</span>
+					{% endif %}
+				</h3>
+				{% if spotlight_node != None %}
+				<!--begin::Parent narrative-->
+				<div class="card p-3 bg-primary">
+
+					<div class="d-flex justify-content-between text-white">
+						{% if spotlight_node.parent != None %}
+						<form method="POST" action="/go_to_parent">
+							<button type="submit" class="btn btn-link p-0 border-0 bg-transparent shadow-none"> <i class="bi bi-skip-backward-fill text-white mr-2"></i></button>
+						</form>
+						{% endif %}
+						<p class="m-0" id="spotlightText">{{spotlight_node.text}}
+						<small class="d-block text-body-secondary">{{spotlight_node.level}}</small>
+						</p>
+						 <form method="POST" action="/edit_node" id="editForm" style="display: none;">
+							<input type="hidden" name="old_text" value="{{spotlight_node.text}}">
+							<input type="text" class="form-control form-control-md" style="width:400px" name="new_text" id="editInput"
+								value="{{spotlight_node.text}}" />
+						</form>
+						<div>
+							<a href="#" id="editBtn"><i class="bi bi-pencil-square text-white me-2"></i></a>
+							<form method="POST" action="/remove_node">
+								<input type="hidden" name="narrative_text" value="{{spotlight_node.text}}">
+								<button type="submit" class="btn btn-link p-0 border-0 bg-transparent shadow-none">
+									<i class="bi bi-trash3-fill text-white"></i>
+								</button>
+							</form>
+						</div>
+					</div>
+				</div>
+				{% endif %}
+				<!--end::Parent narrative-->
+				<!--begin::Child narratives-->
+				<ul>
+					{% for child in children %}
+					<li class="no-bullet mt-2">
+						<div class="card p-3 bg-light">
+							<div class="d-flex justify-content-between">
+								<p class="m-0">{{child.text}}
+									<small class="d-block text-body-secondary">{{child.level}}</small>
+								</p>
+								<form method="POST" action="/go_to_children">
+									<input type="hidden" name="narrative_text" value="{{child.text}}">
+									<button type="submit" class="btn btn-link p-0 border-0 bg-transparent shadow-none"><i class="bi bi-eye text-body"></i></button>
+								</form>
+								<form method="POST" action="/remove_node">
+								<input type="hidden" name="narrative_text" value="{{child.text}}">
+								<button type="submit" class="btn btn-link p-0 border-0 bg-transparent shadow-none">
+									<i class="bi bi-trash3-fill text-body"></i>
+								</button>
+							</form>
+<!--								<a href="#"><i class="bi bi-trash3-fill text-body"></i></a>-->
+							</div>
+						</div>
+					</li>
+					{% endfor %}
+<!--					<li class="no-bullet mt-2">-->
+<!--						<div class="card p-3 bg-light">-->
+<!--							<div class="d-flex justify-content-between">-->
+<!--								<p class="m-0">Bill Gates is ugly and evil-->
+<!--									<small class="d-block text-body-secondary">10 elements</small>-->
+<!--								</p>-->
+<!--								<a href="#"><i class="bi bi-trash3-fill text-body"></i></a>-->
+<!--							</div>-->
+<!--						</div>-->
+<!--					</li>-->
+<!--					<li class="no-bullet mt-2">-->
+<!--						<div class="card p-3 bg-light">-->
+<!--							<div class="d-flex justify-content-between">-->
+<!--								<p class="m-0">Bill Gates ugly</p>								-->
+<!--								<a href="#"><i class="bi bi-trash3-fill text-body"></i></a>-->
+<!--							</div>-->
+<!--						</div>-->
+<!--					</li>-->
+				</ul>
+				<!--end::Child narratives-->
+			</div>
+
+			<!--end::Column3-->
+		</div>
+	</div>
+
+
+<script>
+    const editBtn = document.getElementById('editBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.getElementById('spotlightText').style.display = 'none';
+            document.getElementById('editForm').style.display = 'block';
+            document.getElementById('editInput').focus();
+        });
+    }
+
+    const editInput = document.getElementById('editInput');
+    if (editInput) {
+        editInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('editForm').submit();
+            }
+        });
+    }
+</script>
+
+	<!-- Full retrain script -->
+    <script>
+
+	(function () {
+	  const container = document.getElementById('full-retrain-status');
+	  const STATUS_URL = "{{ url_for('status.retrain_status') }}"; // or "/retrain/status"
+	  const POLL_MS = 5000;
+
+  function normState(s) {
+    // Accept numeric (-1,1,2) or string ('failed','running','done')
+    if (typeof s === 'number') return s;
+    const map = { failed: -1, error: -1, running: 1, in_progress: 1, done: 2, ready: 2 };
+    return map[String(s || '').toLowerCase()] ?? 0;
+  }
+
+  function render(statusVal, errorMsg) {
+		if (statusVal === -1) {
+		  return `
+			<div class="alert alert-danger d-flex align-items-center" role="alert">
+			  <i class="bi bi-exclamation-circle me-2"></i>
+			  <div><strong>Error:</strong> ${errorMsg ? String(errorMsg) : 'Unknown error'}</div>
+			</div>`;
+		}
+		if (statusVal === 1) {
+		  return `
+			<div class="alert alert-warning d-flex align-items-center" role="alert">
+			  <div><strong>Status:</strong> the model is retraining</div>
+			</div>`;
+		}
+		if (statusVal === 2) {
+		  return `
+			<div class="alert alert-success d-flex align-items-center" role="alert">
+			  <div><strong>Status:</strong> the model is ready</div>
+			</div>`;
+		}
+		return ""; // idle/unknown -> nothing shown
+	  }
+	  async function poll() {
+		try {
+		  const r = await fetch(STATUS_URL, { cache: 'no-store' });
+		  const data = await r.json();
+
+		  const rawState = data.full_retrain_status ?? data.state;
+		  const rawError = data.full_retrain_error ?? data.error;
+		  const st = normState(rawState);
+
+		  container.innerHTML = render(st, rawError);
+		  if (st !== 1) return;
+		} catch (e) {
+		  if (container) container.innerHTML = `
+			<div class="alert alert-danger d-flex align-items-center" role="alert">
+			  <i class="bi bi-exclamation-circle me-2"></i>
+			  <div><strong>Error:</strong> Status check failed: ${String(e)}</div>
+			</div>`;
+		  return;
+		}
+		setTimeout(poll, POLL_MS);
+	  }
+
+	  poll();
+	})();
+</script>
+
+<!--	Update mode script -->
+<script>
+	(function () {
+  const container = document.getElementById('update-model-status');
+  const STATUS_URL = "{{ url_for('status.update_status') }}"; // e.g. /update/status
+  const POLL_MS = 5000;
+
+  function normState(s) {
+    if (typeof s === 'number') return s;
+    const map = { failed: -1, error: -1, running: 1, in_progress: 1, done: 2, ready: 2 };
+    return map[String(s || '').toLowerCase()] ?? 0;
+  }
+
+  function render(statusVal, errorMsg) {
+    if (statusVal === -1) {
+      return `
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-circle me-2"></i>
+          <div><strong>Error:</strong> ${errorMsg ? String(errorMsg) : 'Unknown error'}</div>
+        </div>`;
+    }
+    if (statusVal === 1) {
+      return `
+        <div class="alert alert-warning d-flex align-items-center" role="alert">
+          <div><strong>Status:</strong> updating model…</div>
+        </div>`;
+    }
+    if (statusVal === 2) {
+      return `
+        <div class="alert alert-success d-flex align-items-center" role="alert">
+          <div><strong>Status:</strong> model update complete</div>
+        </div>`;
+    }
+    return ""; // idle/unknown
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch(STATUS_URL, { cache: 'no-store' });
+      const data = await r.json();
+      const rawState = data.update_status ?? data.state;
+      const rawError = data.update_error ?? data.error;
+      const st = normState(rawState);
+
+      container.innerHTML = render(st, rawError);
+
+      if (st !== 1) return;
+    } catch (e) {
+      if (container) container.innerHTML = `
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-circle me-2"></i>
+          <div><strong>Error:</strong> Status check failed: ${String(e)}</div>
+        </div>`;
+      return;
+    }
+    setTimeout(poll, POLL_MS);
+  }
+  poll();
+})();
+</script>
+<script>
+(function () {
+  const container = document.getElementById('hard-reset-status');
+  const STATUS_URL = "{{ url_for('status.reset_status') }}"; // e.g. /reset/status
+  const POLL_MS = 5000;
+
+  function normState(s) {
+    if (typeof s === 'number') return s;
+    const map = { failed: -1, error: -1, running: 1, in_progress: 1, done: 2, ready: 2 };
+    return map[String(s || '').toLowerCase()] ?? 0;
+  }
+
+  function render(statusVal, errorMsg) {
+    if (statusVal === -1) {
+      return `
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-circle me-2"></i>
+          <div><strong>Error:</strong> ${errorMsg ? String(errorMsg) : 'Unknown error'}</div>
+        </div>`;
+    }
+    if (statusVal === 1) {
+      return `
+        <div class="alert alert-warning d-flex align-items-center" role="alert">
+          <div><strong>Status:</strong> hard reset in progress…</div>
+        </div>`;
+    }
+    if (statusVal === 2) {
+      return `
+        <div class="alert alert-success d-flex align-items-center" role="alert">
+          <div><strong>Status:</strong> hard reset complete</div>
+        </div>`;
+    }
+    return ""; // idle/unknown
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch(STATUS_URL, { cache: 'no-store' });
+      const data = await r.json();
+      const st = normState(data.reset_status ?? data.state);
+      const err = data.reset_error ?? data.error;
+      container.innerHTML = render(st, err);
+      if (st !== 1) return;
+    } catch (e) {
+      if (container) container.innerHTML = `
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+          <i class="bi bi-exclamation-circle me-2"></i>
+          <div><strong>Error:</strong> Status check failed: ${String(e)}</div>
+        </div>`;
+      return;
+    }
+    setTimeout(poll, POLL_MS);
+  }
+
+  poll();
+})();
+</script>
+
+
+
+<script>
+// ──────────────────────────────────────────────────────────────────
+// Correction-set in-place updates: AJAX the Mark-as-fake / Mark-as-true /
+// remove forms and apply the resulting card state via DOM mutation, with
+// the status poller doing per-card patching instead of a full page reload.
+// ──────────────────────────────────────────────────────────────────
+(function () {
+  const POLL_MS = 3000;
+
+  function findCard(userText) {
+    return document.querySelector(`.card[data-user-text="${CSS.escape(userText)}"]`);
+  }
+
+  function actionPath(form) {
+    try {
+      return new URL(form.action, window.location.origin).pathname;
+    } catch (e) {
+      return form.getAttribute('action') || '';
+    }
+  }
+
+  function renderBadges(card, status, source) {
+    const titleBlock = card.querySelector('.d-flex.justify-content-between.align-items-start > div');
+    if (!titleBlock) return;
+    titleBlock.querySelectorAll('.badge').forEach(b => b.remove());
+    const h5 = titleBlock.querySelector('h5');
+    const add = (cls, text) => {
+      const b = document.createElement('span');
+      b.className = `badge ${cls} mb-2`;
+      b.textContent = text;
+      titleBlock.insertBefore(b, h5);
+    };
+    if (status !== 'done') {
+      if (source === 'expert_correction') add('bg-danger', 'Incorrect prediction');
+      else if (source === 'manual') add('bg-info text-dark', 'Manual inputted');
+    }
+    if (status === 'processing') add('bg-secondary', 'Analysing…');
+    else if (status === 'ingesting') add('bg-warning text-dark', 'Ingesting…');
+    else if (status === 'done') add('bg-success', 'Ingested');
+    else if (status === 'failed') add('bg-danger', 'Failed');
+  }
+
+  // moveToSection used to relocate a card between an "In progress" section
+  // and the main correction list whenever its status changed. The user
+  // pointed out that pulling cards out from under the cursor on every
+  // click is disruptive, so the layout was collapsed into a single list
+  // (see the template). This function is intentionally a no-op now —
+  // kept as a stub so applyCardState's caller sequence doesn't change.
+  function moveToSection(_card, _status) {}
+
+  function renderCloseButton(card, status) {
+    const pending = (status === 'ingesting' || status === 'processing');
+    // Both the X icon and the "Dismiss" button POST to /dismiss_card.
+    // Hide both while the card is mid-ingestion so the user can't dismiss
+    // an in-flight row.
+    card.querySelectorAll('form[action$="/dismiss_card"]').forEach((f) => {
+      f.style.display = pending ? 'none' : '';
+    });
+  }
+
+  function renderActionArea(card, status, label, nodeText) {
+    const actionCol = card.querySelector('.col-6.text-end');
+    if (!actionCol) return;
+    const userText = card.dataset.userText;
+
+    if (status === 'processing') {
+      actionCol.innerHTML = `
+        <button type="button" class="btn btn-outline-secondary align-self-end" disabled>
+          <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          Analysing…
+        </button>`;
+      return;
+    }
+    if (status === 'ingesting') {
+      actionCol.innerHTML = `
+        <button type="button" class="btn btn-outline-secondary align-self-end" disabled>
+          <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          Ingesting…
+        </button>`;
+      return;
+    }
+    if (status === 'done') {
+      // "View tree" only makes sense for fake-tree items — the spotlight
+      // panel only renders fake-tree children. For mark-as-true (label==0)
+      // we still show the "Part of narrative" line in the left column but
+      // suppress the tree-navigation button.
+      const isFake = (label === 1) || (parseInt(card.dataset.label || '0', 10) === 1);
+      actionCol.innerHTML = (nodeText && isFake) ? `
+        <form method="POST" action="/get_internal_structure">
+          <input type="hidden" name="narrative_text" value="${escapeAttr(nodeText)}">
+          <button type="submit" class="btn btn-success align-self-end">View tree</button>
+        </form>` : '';
+      return;
+    }
+    if (status === 'failed') {
+      actionCol.innerHTML = `
+        <form method="POST" action="/mark_item_as_fake">
+          <input type="hidden" name="narrative_text" value="${escapeAttr(userText)}">
+          <button type="submit" class="btn btn-outline-primary align-self-end">Retry mark as fake</button>
+        </form>`;
+      return;
+    }
+    // idle
+    if (label === 0) {
+      // Same "See internal structure" affordance the label==1 path has, so the
+      // user can reach the spotlight panel (and its trash icon) to delete
+      // a misclassified real-tree leaf. Only shown when the row has a
+      // known node — otherwise there's nothing to spotlight.
+      const modifyForm = nodeText ? `
+        <form method="POST" action="/get_internal_structure">
+          <input type="hidden" name="narrative_text" value="${escapeAttr(nodeText)}">
+          <button type="submit" class="btn btn-outline-primary">See internal structure</button>
+        </form>` : '';
+      actionCol.innerHTML = `
+        <div class="d-flex flex-column gap-2 align-items-end">
+          ${modifyForm}
+          <form method="POST" action="/mark_item_as_fake">
+            <input type="hidden" name="narrative_text" value="${escapeAttr(userText)}">
+            <button type="submit" class="btn btn-outline-primary">Mark item as fake</button>
+          </form>
+        </div>`;
+    } else if (label === 1) {
+      actionCol.innerHTML = `
+        <div class="d-flex flex-column gap-2 align-items-end">
+          <form method="POST" action="/get_internal_structure">
+            <input type="hidden" name="narrative_text" value="${escapeAttr(nodeText || '')}">
+            <button type="submit" class="btn btn-outline-primary">See internal structure</button>
+          </form>
+          <form method="POST" action="/mark_item_as_true">
+            <input type="hidden" name="narrative_text" value="${escapeAttr(userText)}">
+            <button type="submit" class="btn btn-outline-success">Mark as true</button>
+          </form>
+        </div>`;
+    } else {
+      actionCol.innerHTML = '';  // unknown / null label — leave empty
+    }
+  }
+
+  function renderPredictedLabelBlock(card, status, label, nodeText, reason) {
+    const labelCol = card.querySelector('.col-6:not(.text-end) ul');
+    if (!labelCol) return;
+    if (status === 'processing') {
+      labelCol.innerHTML = `<li><small class="me-2">Predicted label:</small><span class="text-secondary fst-italic">analysing…</span></li>`;
+      return;
+    }
+    if (label === 0 || label === 1) {
+      const labelText = label === 0 ? 'True' : 'Disinformation';
+      // The two card types split the explanation so each shows a single line:
+      // a Disinformation card shows only "Part of narrative" (the reason would
+      // duplicate it, and on a manual fake-flip can even contradict it); a True
+      // card shows only the reason line (its node is the matched real-news item,
+      // already named in that reason, so "Part of narrative" would mislead).
+      const narrative = (label === 1 && nodeText) ? `<li class="no-bullet"><small class="text-secondary">Part of narrative: ${escapeAttr(nodeText)}</small></li>` : '';
+      const reasonLine = (label === 0 && reason) ? `<li class="no-bullet"><small class="text-secondary fst-italic">${escapeAttr(reason)}</small></li>` : '';
+      labelCol.innerHTML = `<li><small class="me-2">Predicted label:</small><span>${labelText}</span></li>${narrative}${reasonLine}`;
+    }
+  }
+
+  function escapeAttr(s) {
+    return String(s || '').replace(/[&"<>]/g, c => ({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;'}[c]));
+  }
+
+  function applyCardState(card, entry) {
+    card.dataset.ingestStatus = entry.status;
+    if (entry.source) card.dataset.source = entry.source;
+    if (entry.label === 0 || entry.label === 1) card.dataset.label = String(entry.label);
+    const source = card.dataset.source || 'manual';
+    renderBadges(card, entry.status, source);
+    renderCloseButton(card, entry.status);
+    renderPredictedLabelBlock(card, entry.status, entry.label, entry.node_text, entry.explanation_reason);
+    renderActionArea(card, entry.status, entry.label, entry.node_text);
+    moveToSection(card, entry.status);
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function buildProcessingCard(userText) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div class="card bg-light text-dark p-3" data-ingest-status="processing" data-source="manual" data-label="None">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="badge bg-info text-dark mb-2">Manual inputted</span>
+            <span class="badge bg-secondary mb-2">Analysing…</span>
+            <h5 class="mb-0">${escapeHtml(userText)}</h5>
+          </div>
+        </div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="col-6">
+            <ul>
+              <li><small class="me-2">Predicted label:</small><span class="text-secondary fst-italic">analysing…</span></li>
+            </ul>
+          </div>
+          <div class="col-6 text-end align-self-end">
+            <button type="button" class="btn btn-outline-secondary align-self-end" disabled>
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              Analysing…
+            </button>
+          </div>
+        </div>
+      </div>`.trim();
+    const card = wrapper.firstElementChild;
+    card.dataset.userText = userText;
+    return card;
+  }
+
+  // 1a) Intercept Analyse submissions — add a "processing" card immediately,
+  //     fire the server request in the background, and let the poller flip
+  //     the card to its final state once classification finishes.
+  const analyseForm = document.getElementById('analyse-form');
+  if (analyseForm) {
+    analyseForm.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      const textarea = analyseForm.querySelector('textarea[name="user_text"]');
+      const userText = (textarea?.value || '').trim();
+      if (!userText) return;
+
+      if (!findCard(userText)) {
+        const card = buildProcessingCard(userText);
+        // The dedicated "In progress" list is gone — fresh Analyse cards go
+        // to the top of the single correction list so the user can see
+        // their submission immediately without losing context on the
+        // older cards below.
+        const correctionList = document.getElementById('correction-list');
+        if (correctionList) correctionList.prepend(card);
+      }
+      if (textarea) textarea.value = '';
+
+      const fd = new FormData();
+      fd.append('user_text', userText);
+      fetch(analyseForm.action, { method: 'POST', body: fd, redirect: 'follow' })
+        .catch(() => { /* poller will surface 'failed' if the server side errored */ });
+    });
+  }
+
+  // 1) Intercept correction-set form submissions; AJAX instead of reloading the page.
+  document.body.addEventListener('submit', function (ev) {
+    const form = ev.target;
+    const path = actionPath(form);
+    if (path !== '/mark_item_as_fake' && path !== '/mark_item_as_true'
+        && path !== '/dismiss_card') {
+      // /remove_node is used by the spotlight panel's trash icons — those
+      // need a normal form submit + redirect so the page reloads with the
+      // mutated tree. (The card X button used to also call /remove_node
+      // but was switched to /dismiss_card; intercept that path here.)
+      return;
+    }
+    ev.preventDefault();
+    const userText = form.querySelector('input[name="narrative_text"]')?.value || '';
+    const card = findCard(userText);
+
+    if (path === '/dismiss_card') {
+      if (card) card.style.opacity = '0.5';
+      fetch(form.action, { method: 'POST', body: new FormData(form), redirect: 'follow' })
+        .then(() => { if (card) card.remove(); })
+        .catch(() => { if (card) card.style.opacity = ''; });
+      return;
+    }
+
+    // mark_item_as_fake / mark_item_as_true — optimistically flip to ingesting.
+    if (card) {
+      applyCardState(card, {
+        status: 'ingesting',
+        label: parseInt(card.dataset.label || '0', 10),
+        source: 'expert_correction',
+        node_text: null,
+      });
+    }
+    fetch(form.action, { method: 'POST', body: new FormData(form), redirect: 'follow' })
+      .catch(() => { /* poller will surface 'failed' if the server side errored */ });
+  }, true);
+
+  // 2) Status poller: per-card DOM patching, no full reloads.
+  let lastByText = {};  // {user_text: serializedEntry}
+  async function poll() {
+    try {
+      const r = await fetch('/cards/status', { cache: 'no-store' });
+      const data = await r.json();
+      for (const entry of data) {
+        const sig = JSON.stringify(entry);
+        if (lastByText[entry.user_text] === sig) continue;
+        lastByText[entry.user_text] = sig;
+        const card = findCard(entry.user_text);
+        if (card) applyCardState(card, entry);
+      }
+    } catch (e) { /* ignore — try again next tick */ }
+    setTimeout(poll, POLL_MS);
+  }
+  poll();
+})();
+</script>
+
+<script>
+// Active-card highlight. The "selected" card follows the user's last action:
+// clicking any action button on a card (See internal structure / Mark as fake / Mark
+// as true / View tree) highlights that card and clears the previously
+// highlighted one; Dismiss or the × close button clears the highlight
+// entirely. The choice is persisted in sessionStorage so it survives the
+// full-page reloads that See internal structure and View tree trigger.
+(function () {
+  const SEL_KEY = 'selectedCardText';
+  const HL_CLASSES = ['border-primary', 'border-2', 'shadow', 'card-selected'];
+
+  function applyHighlight() {
+    const sel = sessionStorage.getItem(SEL_KEY);
+    document.querySelectorAll('.card[data-user-text]').forEach(card => {
+      const on = sel !== null && card.dataset.userText === sel;
+      HL_CLASSES.forEach(c => card.classList.toggle(c, on));
+    });
+  }
+
+  function pathOf(form) {
+    try { return new URL(form.action, window.location.origin).pathname; }
+    catch (e) { return form.getAttribute('action') || ''; }
+  }
+
+  // Capture phase, on document, so this runs before the AJAX interceptor on
+  // document.body and before any full-page-reload navigation begins.
+  document.addEventListener('submit', function (ev) {
+    const form = ev.target;
+    const card = form.closest && form.closest('.card[data-user-text]');
+    if (!card) return;  // ignore forms outside the correction cards
+    if (pathOf(form) === '/dismiss_card') {
+      sessionStorage.removeItem(SEL_KEY);            // Dismiss / × → clear all
+    } else {
+      sessionStorage.setItem(SEL_KEY, card.dataset.userText);  // this card wins
+    }
+    applyHighlight();
+  }, true);
+
+  // Apply now (the server-rendered cards are already in the DOM) and again on
+  // load, so .card-selected is set before the scroll-preservation handler
+  // below reads it to scroll the active card into view.
+  applyHighlight();
+  window.addEventListener('load', applyHighlight);
+})();
+</script>
+
+<script>
+// Scroll preservation for the form submissions we *don't* intercept above
+// (See internal structure / View tree / Analyse / Update model / Full retrain / Hard
+// reset all do full page reloads). The correction cards scroll inside
+// #correction-scroll (an overflow-auto div), not the window, so we save and
+// restore that container's scrollTop in addition to the window scroll.
+(function () {
+  const WIN_KEY = 'scrollY';
+  const LIST_KEY = 'listScrollTop';
+  const listEl = () => document.getElementById('correction-scroll');
+
+  window.addEventListener('beforeunload', function () {
+    sessionStorage.setItem(WIN_KEY, String(window.scrollY));
+    const el = listEl();
+    if (el) sessionStorage.setItem(LIST_KEY, String(el.scrollTop));
+  });
+  window.addEventListener('load', function () {
+    const y = sessionStorage.getItem(WIN_KEY);
+    if (y !== null) {
+      window.scrollTo(0, parseInt(y, 10));
+      sessionStorage.removeItem(WIN_KEY);
+    }
+    // The active (last-clicked) card wins over the saved list scroll — center
+    // it in the list instead of restoring the position.
+    const selected = document.querySelector('.card-selected');
+    const ly = sessionStorage.getItem(LIST_KEY);
+    if (selected) {
+      selected.scrollIntoView({ block: 'center' });
+      sessionStorage.removeItem(LIST_KEY);
+    } else if (ly !== null) {
+      const el = listEl();
+      if (el) el.scrollTop = parseInt(ly, 10);
+      sessionStorage.removeItem(LIST_KEY);
+    }
+  });
+})();
+</script>
+</body>
+</html>

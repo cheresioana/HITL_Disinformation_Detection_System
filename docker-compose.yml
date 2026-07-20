@@ -1,0 +1,53 @@
+services:
+  web:
+    build: .
+    container_name: disinfo
+    ports:
+      - "5003:5003"
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+      MODEL_GEMMA: "gemma3:27b"
+      EMBEDDING_MODEL: "nomic-embed-text"
+      # (optional) tell the app exactly where these live
+      RESULTS_DIR: "/usr/src/results"
+      ROBERTA_DIR: "/usr/src/roberta_entailment_finetuned"
+      UPLOADS_DIR: "/usr/src/uploads"
+    depends_on:
+      - ollama
+    volumes:
+      # keep these three in sync with the host:
+      - ./results:/usr/src/results
+      - ./roberta_entailment_finetuned:/usr/src/roberta_entailment_finetuned
+      - ./uploads:/usr/src/uploads
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    command: [ "serve" ]  # run the server normally
+
+  ollama-init:
+      image: ollama/ollama:latest
+      depends_on:
+        ollama:
+          condition: service_healthy
+      environment:
+        OLLAMA_HOST: "http://ollama:11434"
+        OLLAMA_GEMMA: "gemma3:27b"
+        OLLAMA_EMBED: "nomic-embed-text"
+      entrypoint: [ "/bin/sh", "-lc" ]
+      command: |
+        ollama pull "gemma3:27b"
+      restart: "no"
+
+
+volumes:
+  ollama:
