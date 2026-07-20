@@ -269,6 +269,23 @@ def latest_checkpoint(folder):
     return best
 
 
+def _clear_checkpoints(folder):
+    """Delete existing tree checkpoint files under ``folder/results/``.
+
+    Used for a from-scratch (non-resume) build so a new run fully overwrites the
+    previous tree and no stale higher-distance files linger for evaluation.
+    """
+    results_dir = os.path.join(folder, "results")
+    removed = 0
+    for pattern in ("full_result_*.json", "readable_result_*.json"):
+        for path in glob.glob(os.path.join(results_dir, pattern)):
+            os.remove(path)
+            removed += 1
+    if removed:
+        logger.info("[%s] Cleared %d checkpoint file(s) for a from-scratch build",
+                    folder, removed)
+
+
 # ---------------------------------------------------------------------------
 # Main algorithm
 # ---------------------------------------------------------------------------
@@ -348,14 +365,20 @@ def run_algo(all_nodes, cluster_max_dist=0.1, verbose=True, index=0, folder=""):
 # High-level training entry point
 # ---------------------------------------------------------------------------
 
-def _build_tree(sub_df, folder, truth_mode):
+def _build_tree(sub_df, folder, truth_mode, resume=True):
     """Build (or resume) a single narrative tree for *sub_df* under *folder*.
 
     Embeddings are only computed when starting fresh — when a checkpoint
     exists the leaf vectors are reloaded from it inside ``run_algo``, so the
     expensive embedding pass is skipped on resume.
+
+    When *resume* is False, any existing checkpoints under *folder* are deleted
+    first, so the tree is rebuilt from scratch and overwrites the previous one.
     """
     set_truth_mode(truth_mode)
+
+    if not resume:
+        _clear_checkpoints(folder)
 
     if latest_checkpoint(folder) is None:
         logger.info("[%s] Generating embeddings for %d samples...",
@@ -375,7 +398,7 @@ def _build_tree(sub_df, folder, truth_mode):
         run_algo(all_nodes=None, folder=folder)
 
 
-def train_narrative_tree_from_dataframe(df, folder=""):
+def train_narrative_tree_from_dataframe(df, folder="", resume=True):
     """
     Train dual narrative trees (fake + real) from a labeled dataframe.
 
@@ -383,6 +406,9 @@ def train_narrative_tree_from_dataframe(df, folder=""):
         df (pandas.DataFrame): Must contain 'text' and 'label' columns
             (label 1 = fake, label 0 = real).
         folder (str): Output directory prefix for saving tree structures.
+        resume (bool): When True (default), continue from any existing
+            checkpoints under *folder*. When False, delete them first and
+            rebuild both trees from scratch.
     """
     df = df[df['text'] != ""].copy()
     df['text'] = df["text"].str.replace('"', '', regex=False)
@@ -401,11 +427,11 @@ def train_narrative_tree_from_dataframe(df, folder=""):
 
     # Build fake narrative tree (disinformation prompts)
     logger.info("Building fake narrative tree...")
-    _build_tree(df_false, folder + "false/", truth_mode=False)
+    _build_tree(df_false, folder + "false/", truth_mode=False, resume=resume)
 
     # Build real narrative tree (factual prompts)
     logger.info("Building truth narrative tree...")
-    _build_tree(df_true, folder + "true/", truth_mode=True)
+    _build_tree(df_true, folder + "true/", truth_mode=True, resume=resume)
 
     # Reset to default
     set_truth_mode(False)

@@ -4,9 +4,13 @@ PYTHON ?= python3
 # Training
 # ---------------------------------------------------------------------------
 
-## Train narrative trees (English, Mindbugs dataset)
+## Train narrative trees from scratch (English, Mindbugs; overwrites existing trees)
 train:
 	$(PYTHON) -m commands.train
+
+## Resume training from the latest checkpoints instead of starting over
+train-resume:
+	$(PYTHON) -m commands.train --resume
 
 # ---------------------------------------------------------------------------
 # Evaluation
@@ -72,7 +76,8 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Training:"
-	@echo "  train           Train narrative trees (English, Mindbugs)"
+	@echo "  train           Train narrative trees from scratch (English, Mindbugs)"
+	@echo "  train-resume    Resume training from the latest checkpoints"
 	@echo ""
 	@echo "Evaluation:"
 	@echo "  eval-val        Evaluate on validation dataset (FILE=path required)"
@@ -88,5 +93,5 @@ help:
 	@echo "  help            Show this help message"
 	@echo ""
 
-.PHONY: train eval-val eval-news eval-sota dataset-stats install test test-fast lint help
+.PHONY: train train-resume eval-val eval-news eval-sota dataset-stats install test test-fast lint help
 .DEFAULT_GOAL := help

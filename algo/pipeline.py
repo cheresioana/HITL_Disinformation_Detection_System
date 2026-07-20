@@ -76,7 +76,7 @@ def discover_structure_files(folder):
 # Training
 # ---------------------------------------------------------------------------
 
-def train_narrative_tree(dataset_name, train_df, folder=""):
+def train_narrative_tree(dataset_name, train_df, folder="", resume=True):
     """Train narrative trees from a training dataframe."""
     logger.info("=" * 70)
     logger.info("TRAINING - Narrative Tree - %s", dataset_name)
@@ -85,7 +85,7 @@ def train_narrative_tree(dataset_name, train_df, folder=""):
 
     start_time = time.time()
     try:
-        train_narrative_tree_from_dataframe(train_df, folder=folder)
+        train_narrative_tree_from_dataframe(train_df, folder=folder, resume=resume)
         training_time = time.time() - start_time
         logger.info("Training completed in %.2f minutes", training_time / 60)
         return training_time
@@ -259,7 +259,7 @@ def run_dual_comparative_evaluation(dataset_name, val, test, folder=""):
 # Full pipeline
 # ---------------------------------------------------------------------------
 
-def run_full_pipeline(dataset_name, loader_fn, folder, skip_training=False):
+def run_full_pipeline(dataset_name, loader_fn, folder, skip_training=False, resume=True):
     """Full pipeline: train narrative tree + evaluate all thresholds."""
     logger.info("#" * 70)
     logger.info("# NARRATIVE TREE - %s", dataset_name)
@@ -273,7 +273,7 @@ def run_full_pipeline(dataset_name, loader_fn, folder, skip_training=False):
     # Step 1: Train
     training_time = None
     if not skip_training:
-        training_time = train_narrative_tree(dataset_name, train, folder=folder)
+        training_time = train_narrative_tree(dataset_name, train, folder=folder, resume=resume)
         if training_time is None:
             logger.warning("Skipping evaluation for %s (training failed)", dataset_name)
             return None
