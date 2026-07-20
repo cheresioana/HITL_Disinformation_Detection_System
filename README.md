@@ -78,6 +78,14 @@ A prose description of the algorithm and the full evaluation results is in [`rep
 ### Prerequisites
 - Docker
 - Docker Compose (v2+)
+- **~100 GB free in Docker's disk** for the models
+
+Check, and reclaim if needed, **before** starting:
+
+```bash
+docker system df          # how much of Docker's disk is used / reclaimable
+docker system prune -af   # frees unused images + build cache (keeps your Ollama models; do NOT add --volumes)
+```
 
 ### Quick start
 ```bash
